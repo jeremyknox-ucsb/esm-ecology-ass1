@@ -1,0 +1,164 @@
+---
+title: "ESM 201 W19 - Assignment 1"
+author: "Jeremy Knox"
+date: "2/2/2019"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(knitr)
+library(kableExtra)
+library(stargazer)
+library(latex2exp)
+library(finalfit)
+
+df = read_csv("assig1_data.csv")
+```
+
+
+## 1) Calculate $\frac{dN}{Ndt}$   
+#### a) The per capita change in population over time is calculated by the following approximation: $$(1) \ \ \ \frac{dN}{Ndt} = ln(\frac{N_{t+1}}{N_{t}})$$ Equation (1) allows us to calculate per capita change over time having only population at time $t+1$ and $t$. The natural log is derived from equation (2): $$(2) \ \ \ N_{t+1} = N_t e^{r(1-\frac{Nt}{K})}$$
+        
+#### b) For $\frac{dN}{Ndt}$ by country between 1963 to 1964 we have: 
+\begin{itemize}
+  \item[] Brazil: $ln(\frac{81972001}{79602001}) = 0.02933851$
+  \item[] India: $ln(\frac{486639001}{476632001}) = 0.02077787$
+  \item[] Japan: $ln(\frac{96959001}{95929001}) = 0.01120974$
+  \item[] Mexico: $ln(\frac{43052001}{41715001}) = 0.03154791$
+  \item[] South Korea: $ln(\frac{27767001}{27138001}) = 0.02218870$
+\end{itemize} 
+
+#### Compared to the given $\frac{dN}{Ndt}$ we have: 
+
+```{r ,echo=FALSE, error=FALSE}
+df_calc = df %>% 
+  filter(year == 1963 | year == 1964) %>% 
+  group_by(country)
+
+df_63to64 = df %>% 
+  filter(year == 1963 | year == 1964) %>% 
+  group_by(country) %>% 
+  mutate(new_dNNdt = log(lead(population)/(population))) %>% 
+  filter(year == 1963) %>% 
+  mutate(year = "1963 to 1964") %>% 
+  select(country,year,dNNdt,new_dNNdt) %>% 
+  kable(col.names = c("County",
+                      "Year",
+                      "Given dNNdt",
+                      "Calculated dNNdt")) %>% 
+  kable_styling()
+df_63to64
+```
+  
+
+#### c) Japan's calculated ${\frac{dN}{Ndt}}_c$ vs. given ${\frac{dN}{Ndt}}_g$ with ${\frac{dN}{Ndt}}_c ={\frac{dN}{Ndt}}_g$ line segment:  
+
+```{r , echo=FALSE, warning=FALSE, fig.height=2.2, fig.width=3.2, fig.align='center'}
+df_Japan = df %>% 
+  filter(country == "Japan") %>% 
+  mutate(new_dNNdt = log(lead(population)/(population))) %>% 
+  select(country,year,dNNdt,new_dNNdt)
+
+Japan = ggplot(df_Japan, aes(x=new_dNNdt, y=dNNdt)) +
+  theme_classic() +
+  geom_point(shape=19, alpha = .6, border = 0) +
+  xlab(TeX('Calculated $\\frac{dN}{Ndt}$')) +
+  ylab(TeX('Given $\\frac{dN}{Ndt}$')) +
+  theme(axis.title.y = element_text(size=7),
+        axis.title.x = element_text(size=7),
+        axis.line = element_line(colour = 'black', size = .25),
+        axis.ticks = element_line(colour = 'black', size = .25)) +
+  xlim(0, 0.015) + 
+  ylim(0, 0.015) +
+  geom_abline(size=.1)
+Japan
+```
+  
+
+## 2) Graph $\frac{dN}{Ndt}$ vs. $N_t$   
+#### a) (c _extra_) Plots of $N_t$ (Population) vs. $\frac{dN}{Ndt}$ for each country:  
+  
+  
+```{r ,echo=FALSE, warning=FALSE}
+df_graph2 = df %>% 
+  mutate(population = population/1000000) 
+
+graph_2 = ggplot(data=df_graph2, aes(x=population, y=dNNdt)) +
+  geom_point(alpha= .6, aes(colour=year, size=calories_pd)) +
+  facet_wrap(~country, scales = "free") +
+  theme_classic() +
+  xlab(TeX('Population $(millions)$')) +
+  ylab(TeX('Per Capita Population Growth $\\frac{dN}{Ndt}$')) +
+  scale_fill_discrete(name="Experimental\nCondition") +
+  scale_x_continuous() +
+  labs(size = "Calories \nPer Person \nPer Day", colour="Year") 
+graph_2
+
+```
+  
+#### b) Japan's carrying capacity $\hat{K}_J$: $$\widehat{\frac{dN}{Ndt}} = 0.05554 - 4.189*10^{-10}(\widehat{population}) + \epsilon \ = 0 \implies \hat{K}_J = 132585000 $$  
+
+#### Mexico's carrying capacity $\hat{K}_M$: $$\widehat{\frac{dN}{Ndt}} = 0.04736 -3.443*10^{-10}(\widehat{population}) + \epsilon \ = 0 \implies \hat{K}_M = 137554000$$
+
+## 3) What influences growth?  
+#### a) model (1) and b) models (2-6):  Table 1 shows 6 different multivariate linear regression models. Model (1) included all countries and predicts Per Capita Population Growth Rate ($\frac{dN}{Ndt}$) based on years of education (education) and calories from food per person per day (calories). For example, for an additional year of education, model (1) predicts -0.002 change in $\frac{dN}{Ndt}$ holding calories constant — calories in (1) is not significant meaning a positive or negative relationship can not be determined from this model. Models (2-6) show each country’s predicted $\frac{dN}{Ndt}$ based on education and calories. For each model there is a negative relationship between years of education and $\frac{dN}{Ndt}$. Notably, Brazil (2), Japan (4) and Mexico (5) have negative relationships between calories and $\frac{dN}{Ndt}$ that has a statistically significant result. However, these models rely on several assumptions and most likely suffer from omitted variable bias. Thus, the reader should impart skepticism when drawing conclusions about these socioeconomic effects on $\frac{dN}{Ndt}$.  
+
+```{r echo=FALSE, warning=FALSE, include=FALSE}
+all_lm = glm(dNNdt ~ years_ed + calories_pd, data=df)
+
+df_B = df %>% 
+  filter(country == "Brazil")
+brazil_lm = glm(dNNdt ~ years_ed + calories_pd, data=df_B)
+
+df_I = df %>% 
+  filter(country  == "India")
+india_lm = glm(dNNdt ~ years_ed + calories_pd, data=df_I)
+
+df_J = df %>% 
+  filter(country == "Japan")
+japan_lm = glm(dNNdt ~ years_ed + calories_pd, data=df_J)
+
+df_M = df %>% 
+  filter(country == "Mexico")
+mex_lm = glm(dNNdt ~ years_ed + calories_pd, data=df_M)
+
+df_SK = df %>% 
+  filter(country == "South Korea")
+korea_lm = glm(dNNdt ~ years_ed + calories_pd, data=df_SK)
+
+```
+
+```{r results = 'asis', echo=FALSE, warning=FALSE, include=FALSE, message=FALSE}
+table <- stargazer(all_lm, brazil_lm, india_lm, japan_lm, mex_lm, korea_lm, type = "latex", column.labels = c("All", "Brazil", "India", "Japan", "Mexico", "South Korea"), dep.var.labels = "Per Capita Population Growth Rate", covariate.labels = c("Years of Education", "Food Calories per person per day"), title = "Multivariate Regression Results", header = FALSE, digits = 5)
+```
+
+```{r results = 'asis', echo=FALSE, warning=FALSE, message=FALSE}
+table <- gsub("\\begin{tabular}","\\resizebox{1.0\\textwidth}{!}{\\begin{tabular}", table,fixed=T)
+table <- gsub("\\end{tabular}","\\end{tabular}}", table, fixed=T)
+cat(table)
+```
+
+
+```{r ,echo=FALSE, warning=FALSE, include= FALSE}
+#set dNNdt = 0 => 
+j_lm = glm(dNNdt ~ population, data = df_J)
+
+# 132585000
+m_lm = glm(dNNdt ~ population, data = df_M)
+
+# 137554000
+
+```
+
+
+
+
+
